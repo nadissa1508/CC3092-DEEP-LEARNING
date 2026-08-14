@@ -1,0 +1,10 @@
+# Datasets descargados automaticamente
+**/data/
+*.tsv
+
+# Checkpoints/pesos exportados (pueden ser grandes, se regeneran al correr el notebook)
+*_weights.json
+
+# Jupyter
+.ipynb_checkpoints/
+__pycache__/
