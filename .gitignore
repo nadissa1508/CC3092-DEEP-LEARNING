@@ -11,3 +11,7 @@ __pycache__/
 
 # Entorno virtual
 .venv/
+
+.png
+outputs/
+pokemon_sprites/
