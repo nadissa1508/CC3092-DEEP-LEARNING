@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AML Detection MVP — CC3092 Deep Learning</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --text: #e2e8f0;
+      --text-muted: #8892b0;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --danger: #ef4444;
+      --danger-light: #fca5a5;
+      --success: #22c55e;
+      --success-light: #86efac;
+      --warning: #f59e0b;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; }
+    header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 6px; }
+    .tag {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      color: var(--accent-light);
+      margin-top: 8px;
+    }
+
+    /* Account selector */
+    .selector-row { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+    .selector-row label { color: var(--text-muted); font-size: 0.85rem; }
+    select {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      appearance: none;
+      min-width: 200px;
+    }
+    select:focus { outline: 2px solid var(--accent); }
+
+    /* Badge */
+    .badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-danger { background: rgba(239,68,68,0.18); color: var(--danger-light); border: 1px solid rgba(239,68,68,0.3); }
+    .badge-success { background: rgba(34,197,94,0.15); color: var(--success-light); border: 1px solid rgba(34,197,94,0.25); }
+
+    /* Metric cards */
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .metric-card .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .metric-card .value { font-size: 1.7rem; font-weight: 700; }
+    .metric-card .sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+    .value-danger { color: var(--danger-light); }
+    .value-success { color: var(--success-light); }
+    .value-warning { color: var(--warning); }
+    .value-normal { color: var(--accent-light); }
+
+    /* Alert banner */
+    .alert-banner {
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .alert-banner.danger { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: var(--danger-light); }
+    .alert-banner.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--success-light); }
+
+    /* Section headers */
+    .section { margin-bottom: 28px; }
+    .section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+    /* Heatmap */
+    #heatmap-container {
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    #heatmap-canvas { border-radius: 8px; }
+
+    /* Transaction table */
+    .tx-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .tx-table th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+    .tx-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(46,50,80,0.5);
+    }
+    .tx-table tr:hover td { background: var(--surface2); }
+    .tx-table .attn-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .attn-fill {
+      height: 8px;
+      border-radius: 4px;
+      min-width: 4px;
+    }
+    .tx-table .attn-val { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+    .tx-index { color: var(--text-muted); font-size: 0.75rem; }
+
+    /* Explanation box */
+    .explanation-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      line-height: 1.7;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .explanation-box.danger-border { border-left-color: var(--danger); }
+    .explanation-box.success-border { border-left-color: var(--success); }
+
+    /* Ground truth note */
+    .gt-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .gt-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .gt-real { background: var(--danger); }
+    .gt-normal { background: var(--success); }
+
+    footer { margin-top: 40px; text-align: center; color: var(--text-muted); font-size: 0.75rem; border-top: 1px solid var(--border); padding-top: 16px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 Sistema de Detección de Lavado de Dinero</h1>
+  <p>MVP — Corredor Guatemala–Estados Unidos | CC3092 Deep Learning</p>
+  <span class="tag">Etapa A: Autoencoder · Etapa B: Clasificador con Transfer Learning + Atención</span>
+</header>
+
+<!-- Account selector -->
+<div class="selector-row">
+  <label for="account-select">Seleccionar remitente:</label>
+  <select id="account-select"></select>
+</div>
+
+<!-- Ground truth badge -->
+<div id="gt-note" class="gt-note"></div>
+
+<!-- Metric cards -->
+<div class="metrics">
+  <div class="metric-card">
+    <div class="label">Score Anomalía — Etapa A</div>
+    <div class="value" id="score-a">—</div>
+    <div class="sub">Error MSE de reconstrucción del autoencoder</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Probabilidad Lavado — Etapa B</div>
+    <div class="value" id="score-b">—</div>
+    <div class="sub">Clasificador supervisado con transfer learning</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Transacciones en secuencia</div>
+    <div class="value value-normal" id="tx-count">—</div>
+    <div class="sub">Longitud de la secuencia temporal</div>
+  </div>
+  <div class="metric-card">
+    <div class="label">Transacción más sospechosa</div>
+    <div class="value value-warning" id="top-tx">—</div>
+    <div class="sub">Índice con mayor peso de atención</div>
+  </div>
+</div>
+
+<!-- Alert banner -->
+<div id="alert-banner" class="alert-banner" style="display:none;"></div>
+
+<!-- Heatmap section -->
+<div class="section">
+  <h2>🗺️ Mapa de Calor de Atención — ¿Qué transacciones activaron la alerta?</h2>
+  <div id="heatmap-container">
+    <canvas id="heatmap-canvas" height="90"></canvas>
+  </div>
+</div>
+
+<!-- Transaction table -->
+<div class="section">
+  <h2>📋 Secuencia de Transacciones</h2>
+  <div style="overflow-x:auto;">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Fecha / Hora</th>
+          <th>Hora del día</th>
+          <th>Monto (USD)</th>
+          <th>Peso de Atención</th>
+        </tr>
+      </thead>
+      <tbody id="tx-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Explanation -->
+<div class="section">
+  <h2>💬 Explicación Automática en Lenguaje Natural</h2>
+  <div class="explanation-box" id="explanation-box"></div>
+</div>
+
+<footer>
+  CC3092 Deep Learning · Proyecto 2 · Sistema AML para Remesas Guatemala–EE.UU.<br/>
+  Modelo: Autoencoder LSTM (Etapa A) + Clasificador Transformer con Atención (Etapa B)
+</footer>
+
+<script>
+// ─── Datos embebidos desde mvp_data.json ──────────────────────────────────────
+const MVP_DATA = [
+    {
+        "Cuenta": "81235E8B0",
+        "Real_Lavado": true,
+        "Score_Anomalia_EtapaA": 49.732337951660156,
+        "Probabilidad_EtapaB": 0.9848543405532837,
+        "Atencion": [
+            0.0007054689340293407,
+            0.00039310724241659045,
+            0.00047666701721027493,
+            0.0005700329202227294,
+            0.0005627345526590943,
+            0.0025642625987529755,
+            0.0017630375223234296,
+            0.1903136968612671,
+            0.3974608778953552,
+            0.4051901400089264
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 04:05:00", "Monto": 783212.33, "Hora": 4},
+            {"Fecha": "2022-09-01 10:45:00", "Monto": 53.70, "Hora": 10},
+            {"Fecha": "2022-09-04 16:42:00", "Monto": 26581.41, "Hora": 16},
+            {"Fecha": "2022-09-06 17:54:00", "Monto": 8812.42, "Hora": 17},
+            {"Fecha": "2022-09-09 19:06:00", "Monto": 48126.43, "Hora": 19}
+        ]
+    },
+    {
+        "Cuenta": "800604EA0",
+        "Real_Lavado": true,
+        "Score_Anomalia_EtapaA": 5.382793426513672,
+        "Probabilidad_EtapaB": 0.9671904444694519,
+        "Atencion": [
+            0.0011425088159739971,
+            0.0006366382585838437,
+            0.0007719630375504494,
+            0.0009231697767972946,
+            0.0009113500127568841,
+            0.0008511848282068968,
+            0.0008563660667277873,
+            0.0025292090140283108,
+            0.3475579023361206,
+            0.6438197493553162
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 00:21:00", "Monto": 4.22, "Hora": 0},
+            {"Fecha": "2022-09-01 23:55:00", "Monto": 4652.80, "Hora": 23},
+            {"Fecha": "2022-09-12 04:08:00", "Monto": 12983.78, "Hora": 4}
+        ]
+    },
+    {
+        "Cuenta": "8066CE920",
+        "Real_Lavado": true,
+        "Score_Anomalia_EtapaA": 5.642397880554199,
+        "Probabilidad_EtapaB": 0.8021962642669678,
+        "Atencion": [
+            0.001349773956462741,
+            0.0007521326187998056,
+            0.0009120066533796489,
+            0.0010906446259468794,
+            0.0010766806080937386,
+            0.001005600206553936,
+            0.1917463093996048,
+            0.024937452748417854,
+            0.19553020596504211,
+            0.581599235534668
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 13:16:00", "Monto": 2336.37, "Hora": 13},
+            {"Fecha": "2022-09-01 15:53:00", "Monto": 9.51, "Hora": 15},
+            {"Fecha": "2022-09-02 06:03:00", "Monto": 1343.42, "Hora": 6},
+            {"Fecha": "2022-09-04 12:31:00", "Monto": 48095.37, "Hora": 12}
+        ]
+    },
+    {
+        "Cuenta": "80189D920",
+        "Real_Lavado": true,
+        "Score_Anomalia_EtapaA": 4.331597328186035,
+        "Probabilidad_EtapaB": 0.30548495054244995,
+        "Atencion": [
+            0.009723409079015255,
+            0.005418161395937204,
+            0.006569854449480772,
+            0.007856711745262146,
+            0.007756119128316641,
+            0.0072440775111317635,
+            0.007137439679354429,
+            0.007150990888476372,
+            0.007192918565124273,
+            0.9339504241943359
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 21:17:00", "Monto": 302.52, "Hora": 21}
+        ]
+    },
+    {
+        "Cuenta": "808942C40",
+        "Real_Lavado": true,
+        "Score_Anomalia_EtapaA": 4.458032608032227,
+        "Probabilidad_EtapaB": 0.6254580616950989,
+        "Atencion": [
+            0.004889456555247307,
+            0.002724544843658805,
+            0.0033036789391189814,
+            0.003950779791921377,
+            0.003900196636095643,
+            0.003642714349552989,
+            0.0035890908911824226,
+            0.003595905378460884,
+            0.005634036846458912,
+            0.9647696018218994
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 07:26:00", "Monto": 7.72, "Hora": 7},
+            {"Fecha": "2022-09-03 20:59:00", "Monto": 4817.65, "Hora": 20}
+        ]
+    },
+    {
+        "Cuenta": "810A6ED70",
+        "Real_Lavado": false,
+        "Score_Anomalia_EtapaA": 1.6813313961029053,
+        "Probabilidad_EtapaB": 0.0016466930974274874,
+        "Atencion": [
+            0.1245364174246788,
+            0.06939523667097092,
+            0.08414600044488907,
+            0.10062792897224426,
+            0.0993395447731018,
+            0.09278137236833572,
+            0.09141556173563004,
+            0.09158912301063538,
+            0.09212613105773926,
+            0.15404273569583893
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 13:05:00", "Monto": 645.38, "Hora": 13}
+        ]
+    },
+    {
+        "Cuenta": "80212F800",
+        "Real_Lavado": false,
+        "Score_Anomalia_EtapaA": 28.84712791442871,
+        "Probabilidad_EtapaB": 0.5518337488174438,
+        "Atencion": [
+            0.03032619133591652,
+            0.018154753372073174,
+            0.3085975646972656,
+            0.030022799968719482,
+            0.013232306577265263,
+            0.4084508717060089,
+            0.13272146880626678,
+            0.02172101102769375,
+            0.015122703276574612,
+            0.02165030874311924
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-07 18:42:00", "Monto": 574.68, "Hora": 18},
+            {"Fecha": "2022-09-08 15:57:00", "Monto": 15565.49, "Hora": 15},
+            {"Fecha": "2022-09-08 23:09:00", "Monto": 371.26, "Hora": 23},
+            {"Fecha": "2022-09-08 23:28:00", "Monto": 574.68, "Hora": 23},
+            {"Fecha": "2022-09-09 01:30:00", "Monto": 574.68, "Hora": 1},
+            {"Fecha": "2022-09-09 01:53:00", "Monto": 371.26, "Hora": 1},
+            {"Fecha": "2022-09-09 16:05:00", "Monto": 15565.49, "Hora": 16},
+            {"Fecha": "2022-09-09 19:48:00", "Monto": 899.24, "Hora": 19},
+            {"Fecha": "2022-09-09 19:55:00", "Monto": 387.92, "Hora": 19},
+            {"Fecha": "2022-09-10 18:17:00", "Monto": 15565.49, "Hora": 18}
+        ]
+    },
+    {
+        "Cuenta": "80B683930",
+        "Real_Lavado": false,
+        "Score_Anomalia_EtapaA": 0.3679540157318115,
+        "Probabilidad_EtapaB": 0.0023980592377483845,
+        "Atencion": [
+            0.1151038259267807,
+            0.06413912773132324,
+            0.07777264714241028,
+            0.0930062010884285,
+            0.09181540459394455,
+            0.08575396239757538,
+            0.08449161052703857,
+            0.08465202152729034,
+            0.08635839819908142,
+            0.2169068306684494
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 00:12:00", "Monto": 417.71, "Hora": 0},
+            {"Fecha": "2022-09-01 03:27:00", "Monto": 18.46, "Hora": 3}
+        ]
+    },
+    {
+        "Cuenta": "80B405790",
+        "Real_Lavado": false,
+        "Score_Anomalia_EtapaA": 0.7856559753417969,
+        "Probabilidad_EtapaB": 0.0023347593378275633,
+        "Atencion": [
+            0.11157059669494629,
+            0.06217031553387642,
+            0.07538533210754395,
+            0.09015128016471863,
+            0.08899704366922379,
+            0.083121657371521,
+            0.0818980410695076,
+            0.082053542137146,
+            0.08344654738903046,
+            0.24120566248893738
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 00:06:00", "Monto": 23.43, "Hora": 0},
+            {"Fecha": "2022-09-01 00:27:00", "Monto": 84387.96, "Hora": 0}
+        ]
+    },
+    {
+        "Cuenta": "80BA1EAB0",
+        "Real_Lavado": false,
+        "Score_Anomalia_EtapaA": 2.5199477672576904,
+        "Probabilidad_EtapaB": 0.0017299707978963852,
+        "Atencion": [
+            0.1229928731918335,
+            0.06853512674570084,
+            0.08310306072235107,
+            0.09938070178031921,
+            0.09810830652713776,
+            0.09163140505552292,
+            0.09028253704309464,
+            0.09045394510030746,
+            0.0909842997789383,
+            0.16452772915363312
+        ],
+        "Transacciones": [
+            {"Fecha": "2022-09-01 16:54:00", "Monto": 5627.89, "Hora": 16}
+        ]
+    }
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Populate selector
+const sel = document.getElementById('account-select');
+MVP_DATA.forEach(d => {
+  const opt = document.createElement('option');
+  opt.value = d.Cuenta;
+  opt.textContent = `${d.Cuenta}  ${d.Real_Lavado ? '🔴 Sospechoso' : '🟢 Normal'}`;
+  sel.appendChild(opt);
+});
+
+sel.addEventListener('change', () => render(sel.value));
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// Color scale: low → blue-purple, mid → orange, high → red
+function attnColor(v) {
+  // 0..1 → CSS color
+  if (v < 0.1) {
+    // near-zero: dark indigo
+    const t = v / 0.1;
+    const r = Math.round(lerp(30, 99, t));
+    const g = Math.round(lerp(30, 40, t));
+    const b = Math.round(lerp(60, 200, t));
+    return `rgb(${r},${g},${b})`;
+  } else if (v < 0.4) {
+    const t = (v - 0.1) / 0.3;
+    const r = Math.round(lerp(99, 245, t));
+    const g = Math.round(lerp(40, 158, t));
+    const b = Math.round(lerp(200, 11, t));
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const t = Math.min((v - 0.4) / 0.6, 1);
+    const r = Math.round(lerp(245, 239, t));
+    const g = Math.round(lerp(158, 68, t));
+    const b = Math.round(lerp(11, 68, t));
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
+function renderHeatmap(attn) {
+  const canvas = document.getElementById('heatmap-canvas');
+  const n = attn.length;
+  const cellW = Math.max(60, Math.min(90, Math.floor(800 / n)));
+  const H = 90;
+  canvas.width = cellW * n;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, H);
+
+  attn.forEach((v, i) => {
+    const x = i * cellW;
+    // Cell fill
+    ctx.fillStyle = attnColor(v);
+    const pad = 4;
+    ctx.beginPath();
+    ctx.roundRect(x + pad, pad, cellW - pad * 2, H - 44, 6);
+    ctx.fill();
+
+    // Label: Tx N
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Tx ${i + 1}`, x + cellW / 2, H - 28);
+
+    // Value
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.fillText((v * 100).toFixed(1) + '%', x + cellW / 2, H - 12);
+  });
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('es-GT', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2
+  }).format(n);
+}
+
+function render(cuenta) {
+  const d = MVP_DATA.find(x => x.Cuenta === cuenta);
+  if (!d) return;
+
+  const prob = d.Probabilidad_EtapaB;
+  const scoreA = d.Score_Anomalia_EtapaA;
+  const isAlert = prob > 0.5;
+  const txs = d.Transacciones;
+  const attn = d.Atencion;
+  const maxAttnIdx = attn.indexOf(Math.max(...attn));
+  const maxAttnVal = attn[maxAttnIdx];
+
+  // Ground truth
+  const gtNote = document.getElementById('gt-note');
+  gtNote.innerHTML = `
+    <span class="gt-dot ${d.Real_Lavado ? 'gt-real' : 'gt-normal'}"></span>
+    Etiqueta real: <strong>${d.Real_Lavado ? 'Lavado de dinero' : 'Legítimo'}</strong>
+    &nbsp;|&nbsp; Cuenta: <strong>${d.Cuenta}</strong>
+  `;
+
+  // Score A
+  const saEl = document.getElementById('score-a');
+  saEl.textContent = scoreA.toFixed(4);
+  saEl.className = 'value ' + (scoreA > 10 ? 'value-danger' : scoreA > 3 ? 'value-warning' : 'value-success');
+
+  // Score B
+  const sbEl = document.getElementById('score-b');
+  sbEl.textContent = (prob * 100).toFixed(2) + '%';
+  sbEl.className = 'value ' + (isAlert ? 'value-danger' : 'value-success');
+
+  // Counts
+  document.getElementById('tx-count').textContent = txs.length;
+  document.getElementById('top-tx').textContent = `Tx ${maxAttnIdx + 1} (${(maxAttnVal * 100).toFixed(1)}%)`;
+
+  // Alert banner
+  const banner = document.getElementById('alert-banner');
+  if (isAlert) {
+    banner.style.display = 'flex';
+    banner.className = 'alert-banner danger';
+    banner.innerHTML = `<span style="font-size:1.2rem">⚠️</span> <strong>ALERTA:</strong> Patrón de lavado detectado — Probabilidad ${(prob * 100).toFixed(1)}%`;
+  } else {
+    banner.style.display = 'flex';
+    banner.className = 'alert-banner success';
+    banner.innerHTML = `<span style="font-size:1.2rem">✅</span> Comportamiento legítimo — No se genera alerta`;
+  }
+
+  // Heatmap
+  renderHeatmap(attn);
+
+  // Transaction table
+  const tbody = document.getElementById('tx-tbody');
+  tbody.innerHTML = '';
+  // Attn is always length 10 (MAX_SEQ_LEN), txs may be shorter; last txs.length entries correspond
+  const attnOffset = attn.length - txs.length;
+
+  txs.forEach((tx, i) => {
+    const w = attn[attnOffset + i] ?? 0;
+    const barColor = attnColor(w);
+    const isTopTx = (attnOffset + i) === maxAttnIdx;
+    const tr = document.createElement('tr');
+    if (isTopTx) tr.style.background = 'rgba(239,68,68,0.08)';
+    tr.innerHTML = `
+      <td class="tx-index">${i + 1} ${isTopTx ? '🎯' : ''}</td>
+      <td>${tx.Fecha}</td>
+      <td>${tx.Hora}:00 h</td>
+      <td style="font-weight:600">${fmt(tx.Monto)}</td>
+      <td>
+        <div class="attn-bar">
+          <div class="attn-fill" style="width:${Math.max(w * 200, 4)}px; background:${barColor};"></div>
+          <span class="attn-val">${(w * 100).toFixed(2)}%</span>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Explanation
+  const expBox = document.getElementById('explanation-box');
+  let text = '';
+  // FP / FN / TP / TN cases
+  const tp = d.Real_Lavado && isAlert;
+  const fp = !d.Real_Lavado && isAlert;
+  const fn = d.Real_Lavado && !isAlert;
+  const tn = !d.Real_Lavado && !isAlert;
+
+  // Reference tx for explanation
+  const realTxIdx = maxAttnIdx - attnOffset;
+  const topTxStr = (realTxIdx >= 0 && realTxIdx < txs.length)
+    ? `La transacción #${realTxIdx + 1} del ${txs[realTxIdx].Fecha} por ${fmt(txs[realTxIdx].Monto)}`
+    : `Un patrón distribuido en la secuencia`;
+
+  if (tp) {
+    text = `El sistema emitió correctamente una alerta de lavado de dinero. El autoencoder de la Etapa A reportó un error de reconstrucción de <strong>${scoreA.toFixed(4)}</strong>, indicando que el comportamiento de esta cuenta se aleja significativamente de la normalidad aprendida. La Etapa B asignó una probabilidad de lavado del <strong>${(prob * 100).toFixed(1)}%</strong>. ${topTxStr} concentró el ${(maxAttnVal * 100).toFixed(1)}% del peso de atención del modelo — probablemente debido a su monto inusual o a su horario atípico dentro del patrón histórico del remitente. Este caso es consistente con tipologías de estructuración (smurfing) o depósito inicial de grandes sumas.`;
+    expBox.className = 'explanation-box danger-border';
+  } else if (fp) {
+    text = `El sistema generó una <strong>falsa alerta (falso positivo)</strong>: la etiqueta real es "Legítimo", pero la probabilidad asignada fue del <strong>${(prob * 100).toFixed(1)}%</strong>. El error de reconstrucción de la Etapa A fue de <strong>${scoreA.toFixed(4)}</strong>, posiblemente elevado por una transacción de monto atípico para este remitente, aunque dentro de rangos legítimos. ${topTxStr} concentró la mayor atención (${(maxAttnVal * 100).toFixed(1)}%), sugiriendo que el modelo interpretó su comportamiento como anómalo. En producción, este caso requeriría revisión manual antes de generar una alerta regulatoria.`;
+    expBox.className = 'explanation-box danger-border';
+  } else if (fn) {
+    text = `El sistema <strong>no detectó</strong> este caso de lavado de dinero (<strong>falso negativo</strong>). Aunque la etiqueta real es "Lavado", la Etapa B asignó solo ${(prob * 100).toFixed(1)}% de probabilidad y la Etapa A un error de reconstrucción de ${scoreA.toFixed(4)}, relativamente bajo. Esto puede indicar que el patrón de este remitente se asemeja superficialmente al comportamiento normal aprendido, o que la secuencia disponible es demasiado corta para que el modelo capture la señal. Este tipo de caso motiva la necesidad de ajustar el umbral de decisión o enriquecer las features de la secuencia.`;
+    expBox.className = 'explanation-box';
+  } else {
+    text = `El sistema clasificó correctamente este caso como legítimo (<strong>verdadero negativo</strong>). La Etapa A reportó un error de reconstrucción de <strong>${scoreA.toFixed(4)}</strong>, coherente con un patrón de remesas normal. La Etapa B asignó solo <strong>${(prob * 100).toFixed(1)}%</strong> de probabilidad de lavado. Los pesos de atención están distribuidos uniformemente entre transacciones, sin concentración anómala en ninguna operación específica — señal de comportamiento consistente y predecible.`;
+    expBox.className = 'explanation-box success-border';
+  }
+  expBox.innerHTML = text;
+}
+
+// Init
+render(MVP_DATA[0].Cuenta);
+</script>
+</body>
+</html>
+
